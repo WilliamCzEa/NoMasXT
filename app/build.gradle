@@ -1,0 +1,115 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.kapt)
+    //Aplicamos el plugin de Hilt
+    alias(libs.plugins.hilt.android)
+}
+
+android {
+    namespace 'com.intermedio.nomasxt'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.intermedio.nomasxt"
+        minSdk 24
+        targetSdk 35
+        versionCode 69
+        versionName "2.9"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        //Java 8 es requerido para Hilt, así que cambio la versión
+        sourceCompatibility = JavaVersion.VERSION_1_8 //JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_1_8 //JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "1.8" // "11"
+    }
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.11" // o la que estés usando
+    }
+    kapt {
+        correctErrorTypes = true
+        arguments {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
+    }
+
+}
+
+dependencies {
+
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.lifecycle.runtime.ktx
+    implementation libs.androidx.activity.compose
+    implementation platform(libs.androidx.compose.bom)
+    implementation libs.androidx.ui
+    implementation libs.androidx.ui.graphics
+    implementation libs.androidx.ui.tooling.preview
+    implementation libs.androidx.material3
+    implementation "androidx.navigation:navigation-compose:2.7.7"
+    implementation "androidx.compose.ui:ui:1.6.4"
+    implementation "androidx.compose.material3:material3:1.2.1"
+    implementation "androidx.activity:activity-compose:1.8.2"
+    //Para la carga del Splash con Gif animado
+    //Recomiendo cambiar en futuro próximo a la aproximación con el archivo toml
+    implementation "io.coil-kt:coil-compose:2.5.0"
+    implementation "io.coil-kt:coil-gif:2.5.0"
+
+    //Para el uso de Retrofit (manejo de endpoints
+    //implementation "com.squareup.retrofit2:retrofit:2.9.0"
+    //implementation "com.squareup.retrofit2:converter-moshi:2.9.0"
+    //Dependencias para retrofit
+    implementation(libs.squareup.retrofit)
+    implementation(libs.squareup.moshi)
+    //Dependencias para moshi
+    implementation(libs.moshi.kotlin)
+    kapt(libs.moshi.kotlin.codegen)
+    //Dagger Hilt
+    implementation(libs.google.dagger.hilt.android)
+    kapt(libs.google.dagger.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.compose.runtime.ktx)
+    //LiveData
+    implementation("androidx.compose.runtime:runtime-livedata:1.8.1")
+    //Dependencias para Room
+    implementation("androidx.room:room-runtime:2.7.1")
+    kapt("androidx.room:room-compiler:2.7.1")
+    implementation("androidx.room:room-ktx:2.7.1")
+    //Dependencias para Moshi
+    implementation(libs.moshi.kotlin)
+    implementation(libs.moshi.kotlin.codegen)
+
+
+
+    testImplementation libs.junit
+    androidTestImplementation libs.androidx.junit
+    // Dependencias para pruebas unitarias
+    testImplementation libs.kotlinx.coroutines.test
+    testImplementation libs.mockk
+    testImplementation libs.androidx.arch.core.testing
+
+    kapt libs.moshi.kotlin.codegen
+
+    androidTestImplementation libs.androidx.espresso.core
+    androidTestImplementation platform(libs.androidx.compose.bom)
+    androidTestImplementation libs.androidx.ui.test.junit4
+    debugImplementation libs.androidx.ui.tooling
+    debugImplementation libs.androidx.ui.test.manifest
+}
+
+
+

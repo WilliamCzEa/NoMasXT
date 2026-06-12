@@ -1,0 +1,53 @@
+<resources>
+    <string name="app_name">No Mas XT</string>
+    <string name="version">2.8-68</string>
+
+
+    <string name="text_about_us">\nNo + XT, es una aplicación desarrollada por El Consejo Ciudadano para la Seguridad y Justicia de la ciudad de México. Es una herramienta para la prevención del delito de extorsión telefónica a nivel nacional, mexicana, gratuita y fácil de usar, fomenta la denuncia, de una forma segura y confidencial permitiendo al ciudadano empoderarlo e ir un paso adelante ante una extorsión telefónica:\n
+\nNo +XT únicamente recopila los números telefónicos que el usuario acepta enviar para ser reportados, los cuales serán compartidos con las Autoridades para su investigación y anexados a la base de datos de la aplicación para proteger de llamadas de extorsión y fraude telefónico a otros ciudadanos.\n
+\nBLOQUEA LLAMADAS DE EXTORSIÓN\nBloquea llamadas consideradas como llamadas de extorsión, comparando el número recibido con los existentes en la base de datos registrados y certificados en el programa “No Más Extorsiones” del Consejo Ciudadano de Seguridad y Justicia de la ciudad de México (55 5533 5533), evitando así, que el ciudadano sea víctima de este delito. En este proceso se debe habilitar el permiso de bloqueo e identificación de llamadas (ir a Configuración, luego Teléfono, seleccionar Bloqueo e identificación de llamadas y activar para la aplicación no mas XT).\n
+\nADICIONA NUEVOS NÚMEROS DE EXTORSIÓN
+\nEn caso de recibir una llamada de un nuevo número, el ciudadano puede sumarlo a la Base de Datos y denunciarlo manualmente ante la organización, al anexar el número recibirá una notificación para no volver a contestar (ID de llamada No mas XT: Número Sospechoso).\n
+\nCOMPLEMENTA TU REPORTE
+\nPuedes complementar tu reporte contactando al Consejo Ciudadano de Seguridad y Justicia de la ciudad de México:\n
+\nTu línea de seguridad y Chat de Confianza:
+\n55 5533 5533
+\nA nivel nacional: 55 5533 5533
+\n
+\nSoporte en: nomasxt@consejociudadanomx.org\n
+\nLos nombres  y logotipos  NoMasXT, No+XT y No más extorsiones son una iniciativa del Consejo Ciudadano para la Seguridad y Justicia de la ciudad de México.\n
+\nTodos los derechos reservados.\n
+\nEl programa no más extorsiones, y la aplicación nomasXT, son herramientas para prevenir el delito de extorsión telefónica a nivel nacional.\n
+    </string>
+
+    <string name="url_about_us">https://www.consejociudadanomx.org/media/files/shares/pdfs/aviso-de-privacidad.pdf</string>
+    <string name="link_about_us"><u>AVISO DE PRIVACIDAD</u>\n</string>
+
+
+    <string name="text_contact_us">CONTÁCTANOS\n
+    Tu línea de seguridad y Chat de Confianza:\n
+    55 5533 5533\n
+    Lada Nacional: 55 5533 5533\n
+    Línea Nacional Vs La Trata\n
+    800 5533 000\n</string>
+    <string name="title_activity_main2">Main2Activity</string>
+
+    <string name="text_contact_us_view">
+	COMPLEMENTA TU REPORTE
+	\nPuedes complementar tu reporte contactando al Consejo Ciudadano de Seguridad y Justicia de la Ciudad de México:
+    \n
+	\nTu línea de seguridad y Chat de Confianza:
+	\n55 5533 5533
+	\nA nivel nacional: *5533
+    \n
+	\nSoporte en: nomasxt@consejociudadanomx.org
+    \n
+	\nCONTÁCTANOS
+	\nTu línea de seguridad y Chat de Confianza:
+	\n55 5533 5533
+	\nLada Nacional: *5533
+	\nLada Nacional Vs La Trata
+	\n800 5533 000
+
+    </string>
+</resources>
