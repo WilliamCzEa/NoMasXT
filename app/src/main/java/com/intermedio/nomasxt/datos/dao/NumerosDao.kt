@@ -20,4 +20,7 @@ interface NumerosDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertaNumero(numero: NumerosEntity)
+
+    @Query("DELETE FROM numeros WHERE numero = :numero")
+    suspend fun eliminarNumero(numero: String)
 }

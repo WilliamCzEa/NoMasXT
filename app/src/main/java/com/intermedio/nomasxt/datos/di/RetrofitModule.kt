@@ -1,5 +1,6 @@
 package com.intermedio.nomasxt.datos.di
 
+import com.intermedio.nomasxt.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -27,7 +28,8 @@ object RetrofitModule {
     @Singleton
     fun provideRetrofit(moshi: Moshi): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://cciudadanonomasxt.com")
+            // La URL cambia por tipo de build: debug usa local, release usa produccion.
+            .baseUrl(BuildConfig.API_BASE_URL)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
     }

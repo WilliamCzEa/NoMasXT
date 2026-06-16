@@ -1,0 +1,14 @@
+package com.intermedio.nomasxt.datos.remoto.dto
+
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
+data class DeleteReportedNumberDto(
+    @Json(name = "appInfo")
+    val appInfo: AppInfoDto,
+    @Json(name = "userId")
+    val userId: String?,
+    @Json(name = "reportedMsisdn")
+    val reportedMsisdn: String?
+)

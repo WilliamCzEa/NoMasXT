@@ -14,4 +14,7 @@ interface ReportesDao {
 
     @Query("SELECT id, fecha, folio, etiqueta, numeroReportado, status FROM reportes")
     fun obtenerTodosLosReportes(): Flow<List<ReportesEntity>>
+
+    @Query("DELETE FROM reportes WHERE numeroReportado = :numero")
+    suspend fun eliminarReportePorNumero(numero: String)
 }

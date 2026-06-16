@@ -18,30 +18,26 @@ class CargaInicialDeNumeros @Inject constructor(
 ) {
 
     suspend fun cargarNumerosDeJson(archivo: String) = withContext(Dispatchers.IO) {
-        //Verificación de tamaño de tabla
-        val totalNumeros = numerosDao.cuentaNumeros()
+        try {
+            val totalNumeros = numerosDao.cuentaNumeros()
+            val jsonString = context.assets.open(archivo).bufferedReader().use { it.readText() }
 
-        if(totalNumeros == 0) {
-            try {
-                val jsonString = context.assets.open(archivo).bufferedReader().use { it.readText() }
+            val adaptador = moshi.adapter(NumerosJson::class.java)
+            val numerosJson = adaptador.fromJson(jsonString)
 
-                //Obtiene el adaptador Moshi para la estructura del JSON
-                val adaptador = moshi.adapter(NumerosJson::class.java)
-                val numerosJson = adaptador.fromJson(jsonString)
+            numerosJson?.numeros?.let { numerosList ->
+                val entidades = numerosList.map { NumerosEntity(numero = it) }
 
-                numerosJson?.numeros?.let { numerosList ->
-                    //Mapea la lista de Strings a la lista de Entities
-                    val entidades = numerosList.map { NumerosEntity(numero = it) }
-                    //Inserta los datos en la base de datos
-                    numerosDao.insertaTodos(entidades)
+                // El DAO usa OnConflictStrategy.IGNORE, asi que esto agrega faltantes sin duplicar.
+                numerosDao.insertaTodos(entidades)
 
-                }
-
-
-            } catch (e: Exception) {
-                Log.d("NoMasXT", "Ocurrió el error ${e.message}")
-
+                Log.d(
+                    "NoMasXT",
+                    "CargaInicialDeNumeros | Tabla tenia $totalNumeros numeros antes de sincronizar assets"
+                )
             }
+        } catch (e: Exception) {
+            Log.d("NoMasXT", "CargaInicialDeNumeros | Error al cargar numeros: ${e.message}")
         }
     }
 }

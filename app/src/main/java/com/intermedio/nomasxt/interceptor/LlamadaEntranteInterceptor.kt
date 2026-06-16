@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat.getSystemService
 import com.intermedio.nomasxt.R
 import com.intermedio.nomasxt.dominio.VerificarNumeroUseCase
 import com.intermedio.nomasxt.presentacion.alertas.AlertaEnPantallaActivity
+import com.intermedio.nomasxt.utilerias.TelefonoNormalizer
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,19 +36,24 @@ import java.util.Locale
 import javax.inject.Inject
 
 private const val TAG = "LlamadaEntranteInterceptor"
-private const val PREFIJO = "+52"
 
 @AndroidEntryPoint
 class LlamadaEntranteInterceptor : Service() {
 
+    // TelephonyManager permite escuchar cambios en el estado de las llamadas.
     private lateinit var telephonyManager: TelephonyManager
-    private var legacyListener: PhoneStateListener? = null
-    private var modernCallback: TelephonyCallback? = null
-    private val watchlistNumbers = listOf("5538017939", "5554326063", "5585714191")
 
+    // Listener usado en versiones anteriores a Android 12.
+    private var legacyListener: PhoneStateListener? = null
+
+    // Callback usado en Android 12/API 31 o superior.
+    private var modernCallback: TelephonyCallback? = null
+
+    // Caso de uso real: consulta la tabla local de numeros reportados.
     @Inject
     lateinit var verificarNumeroUseCase: VerificarNumeroUseCase
 
+    // Scope inyectado para ejecutar trabajo de base de datos fuera del hilo principal.
     @Inject
     lateinit var serviceScope: CoroutineScope
 
@@ -56,8 +62,11 @@ class LlamadaEntranteInterceptor : Service() {
         Log.d("nomasxt", "LlamadaEntranteInterceptor | Iniciando servicio de llamada entrante")
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         Log.d("nomasxt", "LlamadaEntranteInterceptor | Antes de iniciar el servicio en primer plano")
+
+        // Android exige que este servicio quede en primer plano para poder seguir activo.
         iniciarServicioEnPrimerPlano()
 
+        // Android 12+ usa TelephonyCallback para escuchar el estado de las llamadas.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Log.d("nomasxt","LlamadaEntranteInterceptor | Entramos a on Create con versión Code S o superior.")
             //return
@@ -65,6 +74,8 @@ class LlamadaEntranteInterceptor : Service() {
             modernCallback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
                 override fun onCallStateChanged(state: Int) {
                     Log.d("nomasxt", "LlamadaEntranteInterceptor | Entramos a onCallStateChanged, state: $state")
+
+                    // CALL_STATE_RINGING significa que hay una llamada entrante sonando.
                     if (state == TelephonyManager.CALL_STATE_RINGING) {
                         val logEntry = "${getTimestamp()} - Llamada entrante (API 31+)\n"
                         Log.d("CallMonitor", logEntry)
@@ -78,21 +89,19 @@ class LlamadaEntranteInterceptor : Service() {
                             )
                             val recentNumber = getLastIncomingNumber()
                             Log.d("CallMonitor", "Pasamos getLastIncomingNumber")
-                            if (recentNumber != null && watchlistNumbers.contains(recentNumber)) {
-                                val alertIntent = Intent(this@LlamadaEntranteInterceptor,
-                                    AlertaEnPantallaActivity::class.java).apply {
-                                    putExtra("number", recentNumber)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+                            // Flujo real: consulta Room usando el ultimo numero recuperado del historial.
+                            if (recentNumber != null) {
+                                serviceScope.launch(Dispatchers.IO) {
+                                    val numeroABuscar = normalizarNumeroParaBusqueda(recentNumber)
+                                    val existeEnBD = verificarNumeroUseCase(numeroABuscar)
+
+                                    if (existeEnBD) {
+                                        Handler(Looper.getMainLooper()).post {
+                                            mostrarAlerta(recentNumber)
+                                        }
+                                    }
                                 }
-                                startActivity(alertIntent)
-                                /*val alertIntent = Intent(
-                                    this@IncomingCallInterceptor,
-                                    FullscreenAlertActivity::class.java
-                                ).apply {
-                                    putExtra("number", recentNumber)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                }
-                                startActivity(alertIntent)*/
                             }
                         }, 3000) //Dar tiempo a que el CallLog se actualice
                     }
@@ -103,6 +112,7 @@ class LlamadaEntranteInterceptor : Service() {
             Log.d("nomasxt", "LlamadaEntranteInterceptor | Registramos el callback")
 
         } else {
+            // Versiones anteriores a Android 12: incomingNumber llega directamente aqui.
             legacyListener = object : PhoneStateListener() {
                 override fun onCallStateChanged(state: Int, incomingNumber: String?) {
                     if (state == TelephonyManager.CALL_STATE_RINGING) {
@@ -120,17 +130,16 @@ class LlamadaEntranteInterceptor : Service() {
                         }
 
                         serviceScope.launch(Dispatchers.IO) {
-                            val numeroConPrefijo = "$PREFIJO$incomingNumber"
+                            // Flujo actual de la app: asume Mexico y busca +52 + numero nacional.
+                            val numeroConPrefijo = normalizarNumeroParaBusqueda(incomingNumber)
+
+                            // Flujo real: consulta la tabla local de numeros reportados.
                             val existeEnBD = verificarNumeroUseCase(numeroConPrefijo)  //incomingNumber)
 
+                            // Si coincide con Room, se muestra la alerta.
                             if(existeEnBD) {
                                 Handler(Looper.getMainLooper()).postDelayed({
-                                    val alertIntent = Intent(this@LlamadaEntranteInterceptor,
-                                        AlertaEnPantallaActivity::class.java).apply {
-                                        putExtra("number", incomingNumber)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                    }
-                                    startActivity(alertIntent)
+                                    mostrarAlerta(incomingNumber)
 
 
                                 }, 800)
@@ -152,11 +161,14 @@ class LlamadaEntranteInterceptor : Service() {
                     }
                 }
             }
+
+            // Activa el listener antiguo para escuchar cambios de estado de llamada.
             telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_CALL_STATE)
         }
 
     }
 
+    // Guarda logs simples en almacenamiento externo privado de la app para depurar llamadas.
     private fun writeToLogFile(data: String) {
         val dir = File(getExternalFilesDir(null), "logs")
         if (!dir.exists()) dir.mkdirs()
@@ -168,6 +180,7 @@ class LlamadaEntranteInterceptor : Service() {
         }
     }
 
+    // Devuelve fecha y hora para los mensajes de log.
     private fun getTimestamp(): String {
         return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
     }
@@ -187,8 +200,10 @@ class LlamadaEntranteInterceptor : Service() {
         return START_STICKY
     }
 
+    // Este servicio no se conecta con bindService; solo se arranca y queda escuchando.
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Crea la notificacion permanente que Android requiere para un foreground service.
     private fun iniciarServicioEnPrimerPlano() {
         val canalId = "canal_llamadas"
         val canalNombre = "Monitoreo de llamadas"
@@ -235,6 +250,7 @@ class LlamadaEntranteInterceptor : Service() {
         }
     }
 
+    // Funcion actualmente sin uso real; quedo como posible punto para mover logica de monitoreo.
     private fun iniciarMonitoreoLlamadas() {
         val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
@@ -248,6 +264,7 @@ class LlamadaEntranteInterceptor : Service() {
         // Aquí puedes liberar recursos si es necesario
     }
 
+    // Android 12+ no entrega el numero directamente, por eso se intenta leer el ultimo registro del CallLog.
     private fun getLastIncomingNumber(): String? {
         Log.d("CallMonitor", "Entramos a getLastIncomingNumber, antes de contentResolver")
         //Verificación de que exista el permiso para acceder al registro de llamadas
@@ -276,18 +293,36 @@ class LlamadaEntranteInterceptor : Service() {
                 Log.d("CallMonitor", "Pasamos el getString.")
                 return number.replace(" ", "").replace("+52","")
             }*/
-            it.moveToFirst()
+            // Si no hay registros, no hay numero que comparar.
+            if (!it.moveToFirst()) return null
 
-            while (it.moveToNext()){
+            do {
                 val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
                 val type = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                 val fecha = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
 
                 Log.d("CallMonitor", "Número: $number, Tipo: $type, Fecha: $fecha")
 
-            }
+                // Regresa el registro mas reciente normalizado de forma basica.
+                return number.replace(" ", "").replace("-", "")
+
+            } while (it.moveToNext())
         }
         return null
     }
-}
 
+    // Normalizacion internacional: respeta numeros con + y usa Mexico como fallback si Android manda nacional.
+    private fun normalizarNumeroParaBusqueda(numero: String): String {
+        return TelefonoNormalizer.normalizar(numero)
+    }
+
+    // Abre la pantalla roja de alerta cuando el numero existe en la tabla local.
+    private fun mostrarAlerta(numero: String) {
+        val alertIntent = Intent(this@LlamadaEntranteInterceptor,
+            AlertaEnPantallaActivity::class.java).apply {
+            putExtra("number", numero)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(alertIntent)
+    }
+}

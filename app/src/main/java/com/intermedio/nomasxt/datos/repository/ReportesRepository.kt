@@ -7,13 +7,15 @@ import com.intermedio.nomasxt.datos.entity.NumerosEntity
 import com.intermedio.nomasxt.datos.entity.ReportesEntity
 import com.intermedio.nomasxt.datos.remoto.ApiService
 import com.intermedio.nomasxt.datos.remoto.dto.BlockedNumberDto
+import com.intermedio.nomasxt.datos.remoto.dto.DeleteReportedNumberDto
 import com.intermedio.nomasxt.datos.remoto.dto.ReportesDto
 import com.intermedio.nomasxt.datos.remoto.dto.ReportesResponseDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime  //Para usar la fecha actual en el reporte
-import java.time.format.DateTimeFormatter  //Para formatear la fecha
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,6 +42,16 @@ class ReportesRepository @Inject constructor(
                     numero = reporteDto.reportedMsisdn.toString()
                 )
                 numeroDao.insertaNumero(numeroEntity)
+                val numeroReportado = reporteDto.reportedMsisdn.toString()
+                val reporteLocal = ReportesEntity(
+                    id = numeroReportado,
+                    fecha = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+                    folio = "LOCAL",
+                    etiqueta = reporteDto.label ?: "Reporte local",
+                    numeroReportado = numeroReportado,
+                    status = "LOCAL"
+                )
+                reportesDao.agregarReporte(reporteLocal)
                 val mensajeNumeroGuardado = "Número registrado correctamente en su lista de bloqueo."
 
                 Log.d("nomasxt", "ReportesRepository | Número ${reporteDto.reportedMsisdn} guardado en la tabla 'numeros'")
@@ -62,6 +74,7 @@ class ReportesRepository @Inject constructor(
                                 numeroReportado =  blockedNumberDto.phoneNumber!!,
                                 status = blockedNumberDto.status!!
                             )
+                            reportesDao.eliminarReportePorNumero(reporteEntity.numeroReportado)
                             reportesDao.agregarReporte(reporteEntity)
                             Log.d("nomasxt", "ReportesRepository | Reportes de la API guardados en la tabla 'reportes'.")
                             val mensajeReporteGuardado = "Reporte de la API guardado en la tabla 'reportes'"
@@ -100,5 +113,25 @@ class ReportesRepository @Inject constructor(
      */
     fun obtenerTodoslosReportesLocales(): Flow<List<ReportesEntity>> {
         return reportesDao.obtenerTodosLosReportes()
+    }
+
+    suspend fun eliminarNumeroReportado(reporteDto: DeleteReportedNumberDto) = withContext(Dispatchers.IO) {
+        val numero = reporteDto.reportedMsisdn.orEmpty()
+
+        // Borrado local inmediato: permite quitar el numero de Mis reportes y de la alerta.
+        reportesDao.eliminarReportePorNumero(numero)
+        numeroDao.eliminarNumero(numero)
+
+        try {
+            // La API no borra fisicamente: marca el reporte como status=0 en MySQL.
+            val respuesta = apiService.eliminarNumeroReportado(reporteDto)
+            if (respuesta.isSuccessful && respuesta.body()?.result?.resultCode == 200) {
+                Log.d("nomasxt", "ReportesRepository | Reporte $numero marcado como eliminado en la API.")
+            } else {
+                Log.d("nomasxt", "ReportesRepository | Error al eliminar reporte en API: ${respuesta.code()}: ${respuesta.errorBody()?.string()}")
+            }
+        } catch (e: Exception) {
+            Log.d("nomasxt", "ReportesRepository | Excepcion al eliminar reporte en API: ${e.message}")
+        }
     }
 }

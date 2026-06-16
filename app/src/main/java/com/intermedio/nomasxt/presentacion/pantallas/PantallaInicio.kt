@@ -1,24 +1,46 @@
 package com.intermedio.nomasxt.presentacion.pantallas
 
-import android.util.Log
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.intermedio.nomasxt.viewmodel.MisReportesViewModel
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.input.KeyboardType
 import com.intermedio.nomasxt.datos.entity.ReportesEntity
+import com.intermedio.nomasxt.presentacion.componentes.CountryCodeSelector
+import com.intermedio.nomasxt.viewmodel.MisReportesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,14 +52,15 @@ fun PantallaInicio(
     val estaCargando by viewModel.estaCargando.collectAsState()
     val reporteMensajeDeEstado by viewModel.reporteMensajeDeEstado.collectAsState()
     val reportesDeApi by viewModel.reportesDeApi.collectAsState()
+    val paisSeleccionado by viewModel.paisSeleccionado.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar( title = { Text("Mis Reportes") })
+            TopAppBar(title = { Text("Mis Reportes") })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = viewModel::onFabPresionado) {
-                Icon(Icons.Filled.Add, "Reportar nuevo número")
+                Icon(Icons.Filled.Add, "Reportar nuevo numero")
             }
         },
         content = { paddingValues ->
@@ -48,9 +71,9 @@ fun PantallaInicio(
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if(reportesDeApi.isEmpty()) {
+                if (reportesDeApi.isEmpty()) {
                     Text(
-                        text = "Aún no tienes reportes enviados.",
+                        text = "Aun no tienes reportes enviados.",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(top = 32.dp)
                     )
@@ -60,47 +83,56 @@ fun PantallaInicio(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(reportesDeApi) { reporte ->
-                            ReporteItem(reporte = reporte)
+                            ReporteItem(
+                                reporte = reporte,
+                                onEliminar = {
+                                    viewModel.onEliminarReportePresionado(reporte.numeroReportado)
+                                }
+                            )
                         }
                     }
                 }
             }
-            //Diálogo para reportar número.
-            if(mostrarDialogoReporte) {
+
+            if (mostrarDialogoReporte) {
                 AlertDialog(
                     onDismissRequest = viewModel::onSalirDialogoReporte,
-                    title = { Text("Reportar Número") },
+                    title = { Text("Reportar Numero") },
                     text = {
                         Column {
+                            // Normalizacion internacional: el prefijo sale del pais seleccionado.
+                            CountryCodeSelector(
+                                selectedCountry = paisSeleccionado,
+                                countries = viewModel.countries,
+                                onCountrySelected = viewModel::onPaisSeleccionado,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = numeroAReportar,
                                 onValueChange = viewModel::onNumeroIntroducidoCambia,
-                                label = { Text("Número a reportar (+52XXXXXXXXXX)") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Numero a reportar") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 readOnly = estaCargando
                             )
-                            if (reporteMensajeDeEstado != null ) {
-                                Log.d("nomasxt", "PantallaInicio | Entramos a que el reporteMensajeDeEstado no es null y el dato es: $reporteMensajeDeEstado")
+                            reporteMensajeDeEstado?.let { mensaje ->
                                 Text(
-                                    text = reporteMensajeDeEstado!!,
+                                    text = mensaje,
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
-                            } else {
-                                Log.d("nomasxt", "PantallaInicio | reporteMensajeDeEstado es null")
-
                             }
                         }
                     },
                     confirmButton = {
                         Button(
                             onClick = viewModel::onReportarPresionado,
-                            enabled = !estaCargando && numeroAReportar.isNotBlank() && numeroAReportar.length >= 10
+                            enabled = !estaCargando && numeroAReportar.isNotBlank() && numeroAReportar.length >= 8
                         ) {
-                            if(estaCargando) {
+                            if (estaCargando) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     color = MaterialTheme.colorScheme.onPrimary,
@@ -123,20 +155,33 @@ fun PantallaInicio(
 }
 
 @Composable
-fun ReporteItem(reporte: ReportesEntity) {
+fun ReporteItem(
+    reporte: ReportesEntity,
+    onEliminar: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Número: ${reporte.numeroReportado}", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Folio: ${reporte.folio}", style = MaterialTheme.typography.bodySmall)
-            Text(text = "Fecha: ${reporte.fecha}", style = MaterialTheme.typography.bodySmall)
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(text = "Numero: ${reporte.numeroReportado}", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Folio: ${reporte.folio}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "Fecha: ${reporte.fecha}", style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onEliminar) {
+                Icon(Icons.Filled.Delete, contentDescription = "Eliminar reporte")
+            }
         }
     }
 }

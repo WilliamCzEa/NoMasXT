@@ -22,7 +22,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug apunta a la API local que probamos con `adb reverse tcp:3000 tcp:3000`.
+            buildConfigField "String", "API_BASE_URL", "\"http://127.0.0.1:3000/\""
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
+        }
         release {
+            // Release conserva la API real y bloquea HTTP simple para no subir configuracion local.
+            buildConfigField "String", "API_BASE_URL", "\"https://cciudadanonomasxt.com/\""
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -37,6 +45,7 @@ android {
     }
     buildFeatures {
         compose true
+        buildConfig true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.11" // o la que estés usando
@@ -93,6 +102,9 @@ dependencies {
     implementation(libs.moshi.kotlin)
     implementation(libs.moshi.kotlin.codegen)
 
+    // Normalizacion internacional: catalogo, parseo y validacion de telefonos por pais.
+    implementation "com.googlecode.libphonenumber:libphonenumber:8.13.48"
+
 
 
     testImplementation libs.junit
@@ -110,6 +122,4 @@ dependencies {
     debugImplementation libs.androidx.ui.tooling
     debugImplementation libs.androidx.ui.test.manifest
 }
-
-
 

@@ -1,6 +1,8 @@
 package com.intermedio.nomasxt.datos.remoto
 
 import com.intermedio.nomasxt.datos.remoto.dto.CatalogsResponse
+import com.intermedio.nomasxt.datos.remoto.dto.DeleteReportedNumberDto
+import com.intermedio.nomasxt.datos.remoto.dto.DeleteReportedNumberResponseDto
 import com.intermedio.nomasxt.datos.remoto.dto.PerfilDto
 import com.intermedio.nomasxt.datos.remoto.dto.PerfilResponse
 import com.intermedio.nomasxt.datos.remoto.dto.PerfilEditResponse
@@ -26,7 +28,9 @@ interface ApiService {
     @POST("/services/1.0/extortion/ReporterNumber")
     suspend fun reportarNumero(@Body body: ReportesDto): Response<ReportesResponseDto>
 
+    @POST("/services/1.0/extortion/DeleteReportedNumber")
+    suspend fun eliminarNumeroReportado(@Body body: DeleteReportedNumberDto): Response<DeleteReportedNumberResponseDto>
+
     @POST("/services/1.0/extortion/helpService")
     suspend fun quejaOSugerencia(@Body body: QuejaOSugerenciaRequestDto): Response<ResultDto>
 }
-

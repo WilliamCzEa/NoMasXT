@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.intermedio.nomasxt.datos.entity.ReportesEntity
 import com.intermedio.nomasxt.datos.repository.ReportesRepository
 import com.intermedio.nomasxt.dominio.casosdeuso.ReportarNumeroUseCase
+import com.intermedio.nomasxt.dominio.model.Country
+import com.intermedio.nomasxt.dominio.model.defaultCountries
+import com.intermedio.nomasxt.utilerias.TelefonoNormalizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,13 +21,22 @@ import javax.inject.Inject
 class MisReportesViewModel @Inject constructor(
     private val reportarNumeroUseCase: ReportarNumeroUseCase,
     private val reportesRepository: ReportesRepository
-): ViewModel() {
+) : ViewModel() {
 
     private val _mostrarDialogoReporte = MutableStateFlow(false)
     val mostrarDialogoReporte: StateFlow<Boolean> = _mostrarDialogoReporte.asStateFlow()
 
-    private val _numeroAReportar = MutableStateFlow("+52")
+    // Normalizacion internacional: el campo guarda lo que escribe el usuario, sin forzar +52.
+    private val _numeroAReportar = MutableStateFlow("")
     val numeroAReportar: StateFlow<String> = _numeroAReportar.asStateFlow()
+
+    val countries: List<Country> = defaultCountries
+
+    // Normalizacion internacional: Mexico queda como pais por defecto aunque el catalogo este ordenado.
+    private val _paisSeleccionado = MutableStateFlow(
+        defaultCountries.firstOrNull { it.code == "MX" } ?: defaultCountries.first()
+    )
+    val paisSeleccionado: StateFlow<Country> = _paisSeleccionado.asStateFlow()
 
     private val _estaCargando = MutableStateFlow(false)
     val estaCargando: StateFlow<Boolean> = _estaCargando.asStateFlow()
@@ -41,38 +53,44 @@ class MisReportesViewModel @Inject constructor(
             )
 
     fun onFabPresionado() {
-        _numeroAReportar.value = "+52"
+        _numeroAReportar.value = ""
         _reporteMensajeDeEstado.value = null
         _mostrarDialogoReporte.value = true
     }
 
     fun onSalirDialogoReporte() {
         _mostrarDialogoReporte.value = false
-        _numeroAReportar.value = "+52"
+        _numeroAReportar.value = ""
+        _reporteMensajeDeEstado.value = null
+    }
+
+    fun onPaisSeleccionado(country: Country) {
+        _paisSeleccionado.value = country
         _reporteMensajeDeEstado.value = null
     }
 
     fun onNumeroIntroducidoCambia(numero: String) {
-        if(!numero.startsWith("+52")){
-            _numeroAReportar.value = "+52" + numero.filter { it.isDigit() }
-        } else {
-            //Sólo permitir dígitos después del +52
-            val parteNumerica = numero.removePrefix("+52").filter { it.isDigit() }
-            _numeroAReportar.value = "+52" + parteNumerica
+        // Normalizacion internacional: permitimos digitos y, si pegan un numero completo, un + inicial.
+        _numeroAReportar.value = numero.filterIndexed { index, char ->
+            char.isDigit() || (index == 0 && char == '+')
         }
         _reporteMensajeDeEstado.value = null
     }
 
     fun onReportarPresionado() {
-        val numeroSinPrefijo = _numeroAReportar.value.removePrefix("+52")
-
-        if(numeroSinPrefijo.isBlank()) {
-            _reporteMensajeDeEstado.value = "El número no puede estar vacío."
+        if (_numeroAReportar.value.isBlank()) {
+            _reporteMensajeDeEstado.value = "El numero no puede estar vacio."
             return
         }
 
-        if(numeroSinPrefijo.length < 10) {
-            _reporteMensajeDeEstado.value = "Número demasiado corto, debe tener 10 dígitos."
+        val numeroNormalizado = TelefonoNormalizer.normalizar(
+            numeroIngresado = _numeroAReportar.value,
+            dialCode = _paisSeleccionado.value.dialCode,
+            regionCode = _paisSeleccionado.value.code
+        )
+
+        if (!TelefonoNormalizer.esValido(numeroNormalizado, _paisSeleccionado.value.code)) {
+            _reporteMensajeDeEstado.value = "Numero invalido. Verifique el pais y los digitos."
             return
         }
 
@@ -81,18 +99,21 @@ class MisReportesViewModel @Inject constructor(
 
         viewModelScope.launch {
             val mensaje = reportarNumeroUseCase.reportar(
-                phoneNumber = _numeroAReportar.value
+                phoneNumber = numeroNormalizado
             )
 
             _estaCargando.value = false
-            //if(exito) {
-                _reporteMensajeDeEstado.value = mensaje //"Número reportado exitosamente"
-            if(mensaje.contains("guardado en la tabla 'reportes'")) {
+            _reporteMensajeDeEstado.value = mensaje
+
+            if (mensaje.contains("registrado correctamente") || mensaje.contains("guardado en la tabla 'reportes'")) {
                 onSalirDialogoReporte()
             }
-            //} else {
-            //    _reporteMensajeDeEstado.value = "No se pudo reportar el número. Intente de nuevo."
-            //}
+        }
+    }
+
+    fun onEliminarReportePresionado(numero: String) {
+        viewModelScope.launch {
+            reportarNumeroUseCase.eliminarNumeroReportado(numero)
         }
     }
 }
