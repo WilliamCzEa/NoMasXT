@@ -21,3 +21,4 @@ local.properties
 local-api/node_modules/
 local-api/.env
 local-api/*.log
+tools/

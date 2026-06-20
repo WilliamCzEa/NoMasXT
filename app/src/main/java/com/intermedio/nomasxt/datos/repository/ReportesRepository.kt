@@ -9,7 +9,6 @@ import com.intermedio.nomasxt.datos.remoto.ApiService
 import com.intermedio.nomasxt.datos.remoto.dto.BlockedNumberDto
 import com.intermedio.nomasxt.datos.remoto.dto.DeleteReportedNumberDto
 import com.intermedio.nomasxt.datos.remoto.dto.ReportesDto
-import com.intermedio.nomasxt.datos.remoto.dto.ReportesResponseDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -25,94 +24,113 @@ class ReportesRepository @Inject constructor(
     private val numeroDao: NumerosDao,
     private val reportesDao: ReportesDao
 ) {
+    private companion object {
+        const val STATUS_PENDIENTE = "PENDIENTE"
+        const val FOLIO_LOCAL = "LOCAL"
+    }
 
     /*
-     * Reporta un número:
-     * 1. Guarda el número en la tabla 'números' (siempre).
-     * 2. Intenta enviarlo a la API
-     * 3. Si la API responde exitosamente, guarda los reportes recibidos en la tabla 'reportes'.
-     * @param numeroDto El DTO con la información del número a reportar (que se utilizará para la API y NumerosEntity)
-     * @return true si la operación principal (guardar número localmente) fue exitosa, false si hubo un fallo fatal.
+     * Flujo offline-first:
+     * 1. Guarda el numero en Room para que Mis reportes y la alerta local funcionen.
+     * 2. Intenta enviarlo al servidor.
+     * 3. Si el servidor falla, el reporte queda como PENDIENTE y se reintenta despues.
      */
-    suspend fun reportarNumero(reporteDto: ReportesDto): String { // Boolean {
-        return withContext(Dispatchers.IO) {      //Ejecutar en un hilo I/O
+    suspend fun reportarNumero(reporteDto: ReportesDto): String {
+        return withContext(Dispatchers.IO) {
+            val numeroReportado = reporteDto.reportedMsisdn.orEmpty()
+            val mensajeNumeroGuardado = "Numero registrado correctamente en su lista de bloqueo."
+
             try {
-                // 1. Guardar el número en la tabla 'numeros' (siempre)
-                val numeroEntity = NumerosEntity(
-                    numero = reporteDto.reportedMsisdn.toString()
-                )
-                numeroDao.insertaNumero(numeroEntity)
-                val numeroReportado = reporteDto.reportedMsisdn.toString()
-                val reporteLocal = ReportesEntity(
-                    id = numeroReportado,
-                    fecha = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
-                    folio = "LOCAL",
-                    etiqueta = reporteDto.label ?: "Reporte local",
-                    numeroReportado = numeroReportado,
-                    status = "LOCAL"
-                )
-                reportesDao.agregarReporte(reporteLocal)
-                val mensajeNumeroGuardado = "Número registrado correctamente en su lista de bloqueo."
+                guardarReporteLocalPendiente(reporteDto)
+                Log.d("nomasxt", "ReportesRepository | Numero $numeroReportado guardado localmente")
+            } catch (e: Exception) {
+                Log.d("nomasxt", "ReportesRepository | Error guardando reporte local $numeroReportado: ${e.message}")
+                return@withContext "No se pudo registrar el numero reportado localmente, intente mas tarde."
+            }
 
-                Log.d("nomasxt", "ReportesRepository | Número ${reporteDto.reportedMsisdn} guardado en la tabla 'numeros'")
-                // 2. Intentar enviar a la API
-                val respuesta = apiService.reportarNumero(reporteDto)
+            val enviado = enviarReporteAlServidor(reporteDto)
 
-                if(respuesta.isSuccessful) {
-                    val body = respuesta.body()
-                    if(body != null && body.result.resultCode == 200 ) {
-                        val blockedNumberDto: BlockedNumberDto? = body.blockedNumber
-                        if(blockedNumberDto != null) {
-                            //Convertir DTOs a Entities para la tabla 'reportes'
-                            //Nuevamente, revisar como debe estar mapeada la información
-                            val reporteEntity= ReportesEntity (
-                                //Mapeo de BlockedNumberDto a ReportesEntity
-                                id = blockedNumberDto.folio!!,
-                                fecha = blockedNumberDto.date!!,
-                                folio = blockedNumberDto.folio!!,
-                                etiqueta = blockedNumberDto.label!!,
-                                numeroReportado =  blockedNumberDto.phoneNumber!!,
-                                status = blockedNumberDto.status!!
-                            )
-                            reportesDao.eliminarReportePorNumero(reporteEntity.numeroReportado)
-                            reportesDao.agregarReporte(reporteEntity)
-                            Log.d("nomasxt", "ReportesRepository | Reportes de la API guardados en la tabla 'reportes'.")
-                            val mensajeReporteGuardado = "Reporte de la API guardado en la tabla 'reportes'"
-                            return@withContext "$mensajeNumeroGuardado\n$mensajeReporteGuardado"    //Éxito completo, guardado en ambas tablas
-                        } else {
-                            Log.d("nomasxt", "ReportesRepository | API reportarnúmero - Éxito HTTP, result code es 200 o similares pero no hay valores de regreso ")
-                            val mensajeReporteNulo = "Error al enviar el reporte, intentar más tarde."
-                            return@withContext "$mensajeNumeroGuardado\n$mensajeReporteNulo"
-                        }
-                    } else {
-                        Log.d("nomasxt", "ReportesRepository | Éxito HTTP, result code no es 200: ${body?.result?.resultMessage}")
-                        val mensajeCodigoApiError = "Error al enviar el reporte, intentar más tarde."
-                        return@withContext "$mensajeNumeroGuardado\n$mensajeCodigoApiError"
-                    }
-                } else {
-                    Log.d("nomasxt", "ReportesRepository | Error HTTP: ${respuesta.code()}: ${respuesta.errorBody()?.string()}")
-                    val mensajeCodigoHTTPError = "Error al enviar el reporte, intentar más tarde."
-                    return@withContext "$mensajeNumeroGuardado\n$mensajeCodigoHTTPError"
-                }
-                //Si llegamos aquí significa que el número se guardó localmente,
-                //pero la llamada al API no fue completamente exitosa o no trajo reportes para guardar.
-                //Aún así, la operación local de guardado fue exitosa.
-                return@withContext "$mensajeNumeroGuardado"
-            } catch(e: Exception) {
-                //Manejar excepciones de red o parsing
-                Log.d("nomasxt", "ReportesRepository | Excepción ${e.message}")
-                e.printStackTrace()  //Para depuración
-                val mensajeErrorGeneral = "No se pudo registrar el número reportado, ocurrió un error, intente más tarde."
-                return@withContext "$mensajeErrorGeneral"  //Fallo total (no se pudo guardar localmente al menos)
+            if (enviado) {
+                "$mensajeNumeroGuardado\nReporte enviado al servidor correctamente."
+            } else {
+                "$mensajeNumeroGuardado\nServidor no disponible. El reporte queda pendiente por enviar."
             }
         }
     }
 
-    /*
-     * Obtiene todos los números reportados localmente desde la tabla 'reportes'.
-     */
+    private suspend fun guardarReporteLocalPendiente(reporteDto: ReportesDto) {
+        val numeroReportado = reporteDto.reportedMsisdn.orEmpty()
+        numeroDao.insertaNumero(NumerosEntity(numero = numeroReportado))
+
+        val reporteLocal = ReportesEntity(
+            id = numeroReportado,
+            fecha = fechaActual(),
+            folio = FOLIO_LOCAL,
+            etiqueta = reporteDto.label ?: "Reporte local",
+            numeroReportado = numeroReportado,
+            status = STATUS_PENDIENTE
+        )
+        reportesDao.agregarReporte(reporteLocal)
+    }
+
+    private suspend fun enviarReporteAlServidor(reporteDto: ReportesDto): Boolean {
+        return try {
+            val respuesta = apiService.reportarNumero(reporteDto)
+            if (!respuesta.isSuccessful) {
+                Log.d("nomasxt", "ReportesRepository | Error HTTP: ${respuesta.code()}: ${respuesta.errorBody()?.string()}")
+                return false
+            }
+
+            val body = respuesta.body()
+            if (body == null || body.result.resultCode != 200) {
+                Log.d("nomasxt", "ReportesRepository | API no acepto reporte: ${body?.result?.resultMessage}")
+                return false
+            }
+
+            val blockedNumberDto: BlockedNumberDto = body.blockedNumber ?: run {
+                Log.d("nomasxt", "ReportesRepository | API acepto reporte pero no regreso blockedNumber")
+                return false
+            }
+
+            guardarReporteApi(blockedNumberDto, reporteDto.label ?: "Reporte local")
+            Log.d("nomasxt", "ReportesRepository | Reporte enviado y guardado desde API.")
+            true
+        } catch (e: Exception) {
+            Log.d("nomasxt", "ReportesRepository | No se pudo enviar reporte a API: ${e.message}")
+            false
+        }
+    }
+
+    private suspend fun guardarReporteApi(blockedNumberDto: BlockedNumberDto, etiquetaFallback: String) {
+        val numeroReportado = blockedNumberDto.phoneNumber.orEmpty()
+        if (numeroReportado.isBlank()) return
+
+        val reporteEntity = ReportesEntity(
+            id = blockedNumberDto.folio ?: numeroReportado,
+            fecha = blockedNumberDto.date ?: fechaActual(),
+            folio = blockedNumberDto.folio ?: FOLIO_LOCAL,
+            etiqueta = blockedNumberDto.label ?: etiquetaFallback,
+            numeroReportado = numeroReportado,
+            status = blockedNumberDto.status ?: "1"
+        )
+        reportesDao.eliminarReportePorNumero(reporteEntity.numeroReportado)
+        reportesDao.agregarReporte(reporteEntity)
+    }
+
+    private fun fechaActual(): String {
+        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+    }
+
     fun obtenerTodoslosReportesLocales(): Flow<List<ReportesEntity>> {
         return reportesDao.obtenerTodosLosReportes()
+    }
+
+    suspend fun obtenerReportesPendientes(): List<ReportesEntity> = withContext(Dispatchers.IO) {
+        reportesDao.obtenerReportesPendientes()
+    }
+
+    suspend fun sincronizarReportePendiente(reporteDto: ReportesDto): Boolean = withContext(Dispatchers.IO) {
+        enviarReporteAlServidor(reporteDto)
     }
 
     suspend fun eliminarNumeroReportado(reporteDto: DeleteReportedNumberDto) = withContext(Dispatchers.IO) {

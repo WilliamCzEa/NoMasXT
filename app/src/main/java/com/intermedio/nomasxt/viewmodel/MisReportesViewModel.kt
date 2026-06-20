@@ -22,6 +22,11 @@ class MisReportesViewModel @Inject constructor(
     private val reportarNumeroUseCase: ReportarNumeroUseCase,
     private val reportesRepository: ReportesRepository
 ) : ViewModel() {
+    init {
+        viewModelScope.launch {
+            reportarNumeroUseCase.sincronizarReportesPendientes()
+        }
+    }
 
     private val _mostrarDialogoReporte = MutableStateFlow(false)
     val mostrarDialogoReporte: StateFlow<Boolean> = _mostrarDialogoReporte.asStateFlow()

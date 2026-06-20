@@ -28,7 +28,7 @@ interface ApiService {
     @POST("/services/1.0/extortion/ReporterNumber")
     suspend fun reportarNumero(@Body body: ReportesDto): Response<ReportesResponseDto>
 
-    @POST("/services/1.0/extortion/DeleteReportedNumber")
+    @POST("/services/1.0/extortion/deleteReporterNumber")
     suspend fun eliminarNumeroReportado(@Body body: DeleteReportedNumberDto): Response<DeleteReportedNumberResponseDto>
 
     @POST("/services/1.0/extortion/helpService")

@@ -23,9 +23,9 @@ android {
 
     buildTypes {
         debug {
-            // Debug apunta a la API local que probamos con `adb reverse tcp:3000 tcp:3000`.
-            buildConfigField "String", "API_BASE_URL", "\"http://127.0.0.1:3000/\""
-            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            // Prueba contra produccion: permite ejecutar desde Android Studio y validar MySQL real.
+            buildConfigField "String", "API_BASE_URL", "\"https://cciudadanonomasxt.com/\""
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
         }
         release {
             // Release conserva la API real y bloquea HTTP simple para no subir configuracion local.
@@ -122,4 +122,3 @@ dependencies {
     debugImplementation libs.androidx.ui.tooling
     debugImplementation libs.androidx.ui.test.manifest
 }
-
