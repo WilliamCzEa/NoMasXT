@@ -16,33 +16,35 @@ class QuejasOSugerenciasRepository @Inject constructor(
     private val apiService: ApiService,
     private val catalogoIncidentesDao: CatalogoIncidentesDao
 ) {
-    /*
-    *
-    */
-
-    fun obtenerCatalogoIncidencias(): Flow<List<CatalogoIncidentesEntity>>{
+    fun obtenerCatalogoIncidencias(): Flow<List<CatalogoIncidentesEntity>> {
         return catalogoIncidentesDao.obtenerCatalogoIncidentes()
     }
 
-    suspend fun enviarQuejaOSugerencia(quejaOSugerenciaRequestDto: QuejaOSugerenciaRequestDto): Result<String> {
+    suspend fun enviarQuejaOSugerencia(
+        quejaOSugerenciaRequestDto: QuejaOSugerenciaRequestDto
+    ): Result<String> {
         return withContext(Dispatchers.IO) {
-            val respuesta = apiService.quejaOSugerencia(quejaOSugerenciaRequestDto)
             try {
+                // El backend responde como {"result": {...}}; si Retrofit falla aqui, evitamos cerrar la app.
+                val respuesta = apiService.quejaOSugerencia(quejaOSugerenciaRequestDto)
                 if (respuesta.isSuccessful) {
-                    val body = respuesta.body()
-                    if(body != null && body.resultCode == 200) {
-                        Log.d("nomasxt", "QuejasOSugerenciasRepository | Se pudo enviar correctamente la información")
+                    val result = respuesta.body()?.result
+                    if (result?.resultCode == 200) {
+                        Log.d("nomasxt", "QuejasOSugerenciasRepository | Se pudo enviar correctamente la informacion")
                         Result.success("Solicitud enviada exitosamente")
                     } else {
                         Log.d("nomasxt", "QuejasOSugerenciasRepository | Los datos no se guardaron en el servidor")
-                        Result.failure(Exception("Error al enviar la solicitud: ${body?.resultMessage}"))
+                        Result.failure(Exception("Error al enviar la solicitud: ${result?.resultMessage}"))
                     }
                 } else {
-                    Log.d("nomasxt", "QuejasOSugerenciasRepository | Error en la respuesta, el servidor respondió: ${respuesta}")
-                    Result.failure(Exception("Error al enviar la solicitud, intente más tarde."))
+                    Log.d(
+                        "nomasxt",
+                        "QuejasOSugerenciasRepository | Error HTTP ${respuesta.code()}: ${respuesta.errorBody()?.string()}"
+                    )
+                    Result.failure(Exception("Error al enviar la solicitud, intente mas tarde."))
                 }
             } catch (e: Exception) {
-                Log.d("nomasxt", "QuejaOSugerenciaRepository | Ocurrió un error: ${e.message}")
+                Log.d("nomasxt", "QuejasOSugerenciasRepository | Ocurrio un error: ${e.message}")
                 Result.failure(Exception("Error de red o desconocido"))
             }
         }
