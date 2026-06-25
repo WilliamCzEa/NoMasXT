@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.SCREEN_CALLS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!--
+        Android 14/15 exige permisos especificos cuando un foreground service se declara
+        como phoneCall. Sin estos permisos, startForeground(... PHONE_CALL) lanza
+        SecurityException al iniciar el interceptor de llamadas.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />

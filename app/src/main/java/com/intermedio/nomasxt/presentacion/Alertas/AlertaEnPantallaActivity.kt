@@ -4,15 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,11 +31,11 @@ class AlertaEnPantallaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Oculta las barras del sistema para pantalla completa
+        // Mantiene la alerta en pantalla completa sobre la llamada entrante.
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            NoMasXTTheme{
+            NoMasXTTheme {
                 PantallaCompletaAlertUI()
             }
         }
@@ -46,22 +54,26 @@ fun PantallaCompletaAlertUI() {
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            // fillMaxWidth centra el contenido en pantallas pequenas y grandes sin depender del modelo.
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "⚠️ Llamada Sospechosa",
+                text = "Llamada Sospechosa",
+                modifier = Modifier.fillMaxWidth(),
                 fontSize = 28.sp,
                 color = Color.White,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
-                    // Aquí puedes colgar la llamada, reportarla, etc.
-                    // Puedes usar un callback, ViewModel o una función directa
+                    // Pendiente: colgar o reportar llamada desde esta accion.
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White)
             ) {
@@ -72,7 +84,6 @@ fun PantallaCompletaAlertUI() {
 
             Button(
                 onClick = {
-                    // Finaliza la Activity
                     (context as? ComponentActivity)?.finish()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White)
@@ -82,4 +93,3 @@ fun PantallaCompletaAlertUI() {
         }
     }
 }
-
