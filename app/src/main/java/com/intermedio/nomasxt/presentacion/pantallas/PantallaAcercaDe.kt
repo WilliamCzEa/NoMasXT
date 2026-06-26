@@ -79,7 +79,7 @@ fun PantallaAcercaDe() {
                 modifier = Modifier.width(150.dp)
             )
             Image(
-                painter = painterResource(id = R.drawable.imagen_nomasxt),
+                painter = painterResource(id = R.mipmap.ic_launcher),
                 contentDescription = "No Mas XT",
                 modifier = Modifier.width(150.dp)
             )
